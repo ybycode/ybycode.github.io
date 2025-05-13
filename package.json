@@ -1,0 +1,25 @@
+{
+  "name": "ybycode.github.io",
+  "version": "1.0.0",
+  "description": "See https://docs.astro.build/en/guides/deploy/github/",
+  "main": "index.js",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ybycode/ybycode.github.io.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ybycode/ybycode.github.io/issues"
+  },
+  "homepage": "https://github.com/ybycode/ybycode.github.io#readme",
+  "dependencies": {
+    "astro": "^5.7.12"
+  }
+}
