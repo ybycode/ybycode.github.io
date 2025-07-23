@@ -1,0 +1,75 @@
+---
+title: "Nix shell for arduino CLI development"
+description: 'A Nix shell for developing arduino in the terminal'
+pubDate: '07.25.2025'
+draft: false
+---
+
+This nix shell sets up `arduino-cli` and `picocom`, and:
+- defines environment variables to instruct `arduino-cli` to only write in the project folder (no pollution of the `$HOME` directory),
+- defines bash functions to simplify most used CLI calls:
+  - connected-boards
+  - compile
+  - upload
+  - monitor
+
+This also has the advantage of documenting the usage of arduino-cli and co. (things we somehow tend to have forgetten 6 months later!)
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+with pkgs;
+
+let
+
+  project_root = builtins.toString ./.;
+
+in mkShell {
+  name = "arduinoShell";
+  buildInputs = [
+    arduino-cli
+    picocom
+    python3Minimal
+  ];
+
+  ARDUINO_DIRECTORIES_DATA = "${project_root}/arduino-cli/data";
+  ARDUINO_DIRECTORIES_DOWNLOADS = "${project_root}/arduino-cli/downloads";
+  ARDUINO_DIRECTORIES_USER = "${project_root}/arduino-cli/user";
+
+  shellHook = ''
+    alias vim=nvim
+    cd "${project_root}" && mkdir -p arduino-cli/{data,downloads,user}
+
+    export FQBN=esp32:esp32:esp32
+    export PORT=/dev/ttyUSB0
+    export SKETCH=.
+
+    # lists connected boards:
+    #
+    #   $ arduino-cli board list
+    #   Port         Protocol Type              Board Name FQBN Core
+    #   /dev/ttyUSB0 serial   Serial Port (USB) Unknown
+
+    connected-boards() {
+      arduino-cli board list
+    }
+
+    compile() {
+      sketch="$1"
+      arduino-cli compile --fqbn "$FQBN" "$SKETCH"
+    }
+
+    upload() {
+      arduino-cli upload -p "$PORT" --fqbn "$FQBN" "$SKETCH"
+    }
+
+    monitor() {
+      picocom -b 115200 "$PORT"
+      # (ctrl-a ctrl-x to exit)
+    }
+
+    echo "Available commands: connected-boards, compile, upload, monitor"
+  '';
+
+}
+```

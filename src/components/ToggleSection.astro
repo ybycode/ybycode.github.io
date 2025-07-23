@@ -1,0 +1,53 @@
+---
+// ToggleSection.astro
+const { triangleSrc, content } = Astro.props;
+---
+
+<style>
+  .toggle-content {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #f9f9f9;
+    border-left: 4px solid #007acc;
+  }
+
+  .toggle-content.visible {
+    display: block;
+  }
+
+  .triangle-icon {
+    cursor: pointer;
+    width: 20px;
+    height: auto;
+    transition: transform 0.2s ease;
+  }
+
+  .triangle-icon.rotated {
+    transform: rotate(90deg);
+  }
+</style>
+
+<script client:load>
+  const toggleContent = () => {
+    const contentEl = document.getElementById('toggleable-content');
+    const iconEl = document.getElementById('triangle-icon');
+
+    const isVisible = contentEl.classList.contains('visible');
+    contentEl.classList.toggle('visible', !isVisible);
+    iconEl.classList.toggle('rotated', !isVisible);
+  };
+</script>
+
+<svg
+  id="triangle-icon"
+  class="triangle-icon"
+  viewBox="0 0 24 24"
+  xmlns="http://www.w3.org/2000/svg"
+  onclick="toggleContent()"
+>
+  <polygon points="6 4 20 12 6 20" />
+</svg>
+<div id="toggleable-content" class="toggle-content">
+  <slot />
+</div>

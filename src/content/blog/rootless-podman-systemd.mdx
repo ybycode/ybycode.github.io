@@ -1,0 +1,132 @@
+---
+title: "One doesn't simply (rootless podman with systemd)"
+description: 'Lorem ipsum dolor sit amet'
+pubDate: 'Jul 08 2025'
+heroImage: '/blog-placeholder-3.jpg'
+draft: true
+---
+
+import ToggleSection from '../../components/ToggleSection.astro';
+
+I'm self hosting a few web apps, for instance [audiobookshelf](https://www.audiobookshelf.org/), [jellyfin](https://jellyfin.org/), [linkding](https://linkding.link/), or [Home Assistant](https://www.home-assistant.io/). I usually run web apps in docker containers, but recently wanted to use [podman](https://podman.io/), its API is compatible with docker's, and it can provide extra security compared to docker, as it doesn't use a daemon, and can be run by non root users (hence the "rootless").
+
+Docker now also has a rootless mode, but it still needs a daemon (owned by the user), which complicates setups. Podman runs with no daemon, so that's pretty nice.
+
+Most of the apps I run generate data that I want to regularly backup, so it makes sense to use a volume to bind mount a host directory into the container.
+
+
+### Spec
+
+Basically here's what I ideally would like to do. For a service "xyz":
+
+#### On the host
+
+- create a dedicated system user, with its home directory in `/var/lib`, so `/var/lib/xyz` in out example.
+- create a systemd system wide service (
+
+<ToggleSection triangleSrc="/triangle-right.png">
+
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+let
+  here = toString ./.;
+  base_image = "${here}/ubuntu-base.img";
+  overlay_image="${here}/ubuntu-overlay.qcow2";
+  seed_iso="${here}/seed.iso";
+
+  scripts = pkgs.symlinkJoin {
+    name = "vm-scripts";
+    paths = [
+      (pkgs.writeShellApplication {
+        name = "start-vm";
+
+        runtimeInputs = with pkgs; [ qemu ];
+
+        text = ''
+          echo "Starting the VM..."
+          qemu-system-x86_64 \
+            -enable-kvm \
+            -m 2048 \
+            -drive file="${overlay_image}",format=qcow2 \
+            -drive file="${seed_iso}",format=raw \
+            -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+            -device virtio-net-pci,netdev=net0 \
+            -virtfs local,path=${here}/shared,security_model=none,mount_tag=shared \
+            -display none \
+            -nographic
+            # -daemonize
+
+          echo "VM started. Connect with: ssh -p 2222 $(grep -oP 'name:\s*\K\w+' "${here}/user-data")@localhost"
+        '';
+      })
+
+      (pkgs.writeShellApplication {
+        name = "reset-vm";
+
+        runtimeInputs = [ ];
+
+        text = ''
+          rm -f ${overlay_image} ${seed_iso}
+          echo "VM reset"
+        '';
+      })
+
+      (pkgs.writeShellApplication {
+        name = "ssh-vm";
+
+        runtimeInputs = [ ];
+
+        text = ''
+          echo "Trying to connect via SSH..."
+          kitten ssh -p 2222 -i "${here}/ssh_key" me@localhost
+        '';
+      })
+    ];
+  };
+in pkgs.mkShell {
+  packages = with pkgs; [
+    qemu
+    cloud-utils
+    wget
+    scripts
+  ];
+
+  shellHook = ''
+    # Download base image if not exists
+    if [ ! -f "${base_image}" ]; then
+      echo "Downloading Ubuntu cloud image..."
+      wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img -O "${base_image}"
+    fi
+
+    # Create overlay image if not exists
+    if [ ! -f "${overlay_image}" ]; then
+      echo "Creating overlay image..."
+      qemu-img create -b "${base_image}" -F qcow2 -f qcow2 "${overlay_image}" 20G
+    fi
+
+    # Create cloud-init ISO if not exists
+    if [ ! -f "${seed_iso}" ]; then
+      echo "Creating cloud-init ISO..."
+      echo "${here}" && ls -lh "${here}"
+      if [ ! -f "${here}/user-data" ] || [ ! -f "${here}/meta-data" ]; then
+        echo "Error: Missing cloud-init files (user-data and meta-data)" >&2
+        exit 1
+      fi
+      cloud-localds "${seed_iso}" "${here}/user-data" "${here}/meta-data"
+    fi
+
+    echo "Overlay image: ${overlay_image}"
+    echo "To reset VM, delete the overlay image"
+  '';
+}
+```
+
+</ ToggleSection>
+
+
+## References
+
+- Discussion on github: ["support User= in systemd for running rootless services #20573"](https://github.com/containers/podman/discussions/20573)
+- Systemd `ConditionUser`: https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#ConditionUser=
