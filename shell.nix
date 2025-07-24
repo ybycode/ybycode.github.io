@@ -4,7 +4,8 @@ let
   project_dir = toString ./.;
 in pkgs.mkShell {
   buildInputs = with pkgs; [
-    nodejs_23
+    nodejs_24
+    prettierd
   ];
 
   shellHook = ''

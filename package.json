@@ -20,6 +20,10 @@
   },
   "homepage": "https://github.com/ybycode/ybycode.github.io#readme",
   "dependencies": {
+    "@astrojs/mdx": "^4.2.6",
+    "@astrojs/rss": "^4.0.11",
+    "@astrojs/sitemap": "^3.4.0",
+    "@fontsource/ubuntu-mono": "^5.2.5",
     "astro": "^5.7.12"
   }
 }
